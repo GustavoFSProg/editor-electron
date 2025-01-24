@@ -1,4 +1,4 @@
-const {app, BrowserWindow, dialog, Menu} = require('electron')
+const {app, BrowserWindow, dialog, ipcMain, shell, Menu, Accelerator} = require('electron')
 const fs = require('fs')
 const path = require('path')
 
@@ -20,6 +20,11 @@ async function CreateWindow(){
 //   mainWindow.webContents.openDevTools();
 
 createNewFile()
+
+
+ipcMain.on('update-content', function(event,data){
+    file.content = data
+})
 }
 
 var file = {}
@@ -31,9 +36,11 @@ function  createNewFile(){
     path: app.getPath('documents')+'/novo-arquivo.txt'
   }
 
-  console.log(file)
+//   console.log(file)
 
   mainWindow.webContents.send('set-file', file)
+
+
 }
 
  function writeFile(filePath){
@@ -48,7 +55,7 @@ function  createNewFile(){
         })
         
 
-
+        mainWindow.webContents.send('set-file', file)
 
     } catch (error) {
         console.log(error)
@@ -65,25 +72,72 @@ async function saveFileAs(){
     writeFile(dialogFile .filePath)
 }
 
+ function saveFile(){
+    if(file.saved){
+        return  writeFile(file.path)
+    }
+
+    return saveFileAs()
+}
+
+function readFile(filePath){
+try {
+
+    return fs.readFileSync(filePath, 'utf8')
+    
+} catch (error) {
+    console.log(error)
+    
+}
+}
+
+async function openFile(){
+   let dialogFile = await dialog.showOpenDialog({
+    defaultPath: file.path
+   })
+
+   if (dialogFile.canceled) return false;
+
+   file = {
+    name: path.basename(dialogFile.filePaths[0]),
+    content: readFile(dialogFile.filePaths[0]),
+    saved: true,
+    path: dialogFile.filePaths[0]
+   }
+
+   console.log(file)
+   mainWindow.webContents.send('set-file', file)
+}
+
 const templateMenu =  [ 
     {
         label: 'Arquivo',
         submenu: [
             {
                 label: 'Novo',
+                accelerator: 'cmdorCtrl+n',
                 click(){
                     createNewFile();
                 }
             },
             {
-                label: 'Abrir'
+                label: 'Abrir',
+                accelerator: 'cmdorCtrl+o',
+                click(){
+                    openFile()
+                }
             },
 
             {
-                label: 'Salvar'
+                label: 'Salvar',
+                accelerator: 'cmdorCtrl+s',
+                click(){
+                    saveFile()
+                }
             },
             {
                 label: 'Salvar Como',
+                accelerator: 'cmdorCtrl+shift+s',
                 click(){
                     saveFileAs();
                 }
@@ -95,7 +149,51 @@ const templateMenu =  [
 
 
         ]
+    },
+    {
+        label:'Editar',
+         
+         submenu:[
+            {
+                label: 'Desfazer',
+                role:"undo"
+            },
+            {
+                label: 'Refazer',
+                role:"redo"
+            },
+            {
+                type: "separator"
+            },
+            {
+                label: 'Copiar',
+                role:"copy"
+            },
+            {
+                label: 'Cortar',
+                role:"cut"
+            },
+            {
+                label: 'Colar',
+                role:"paste"
+            }
+         ]
+    },
+    {
+         label: "Ajuda",
+           submenu: [
+            {
+                label: "Canal Dev",
+                 click(){
+                    shell.openExternal('https://youtube.com')
+                 }
+
+                 
+
+            }
+           ]
     }
+
 
 ]
 
